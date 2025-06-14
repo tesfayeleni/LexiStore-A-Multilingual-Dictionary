@@ -25,17 +25,17 @@ Designed for the command line, it supports file import/export, lazy deletion, sy
 ---
 
 ##  Sample Output
-`
+```
 hello
 English: hi;greetings|hey|bye;adieu
 German: hallo;gruß
-`
+```
 Upon starting the program:
-`
+```
 Size of HashTable = 1500
 Total Number of Collisions = 29
 Avg. Number of Collisions/Entry = 0.019
-`
+```
 ## Build Instructions
 
 Make sure you have g++ and make installed on your system.
@@ -64,23 +64,23 @@ make clean
 
 ## Dictionary File Format
 When importing dictionary files, the program expects a text file in the following format:
-`
+```
 language
 word: meaning1;meaning2|synonym1;synonym2|antonym1;antonym2
 another_word: meaning1|synonym1|antonym1
-`
+```
   
 - The file should start with the language name (e.g., English, German) on its own line.
-- Each word line contains the word, followed by a colon : , then meanings separated by semicolons ; .
+- Each word line contains the word, followed by a colon `:` , then meanings separated by semicolons `;` .
 - Synonyms and antonyms follow after pipe | separators.
-- Multiple synonyms and antonyms are separated by semicolons ;.
+- Multiple synonyms and antonyms are separated by semicolons `;`.
 
 **Example:**
-`
+```
 English
 hello: hi;greetings|hey|bye;adieu
 world: earth;globe|planet|void
-`
+```
 Make sure your dictionary files follow this format for proper import and functionality.
 
 
