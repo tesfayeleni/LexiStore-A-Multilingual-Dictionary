@@ -23,10 +23,15 @@ class Entry
 	private:
 		string word;
 		vector<Translation> translations;
+		vector<string> synonyms;
+		vector<string> antonyms;
+		int search_count = 0;
 		bool deleted;  // is the bucket is available to be reused after being deleted
 	public:
 		Entry(string word, string meanings,string language);
 		void addTranslation(string newMeanings, string language);
+		void addSynonyms(string syns);
+		void addAntonyms(string ants);
 		void print();
 		friend class HashTable;
 };
@@ -45,10 +50,12 @@ class HashTable
 		unsigned int getCollisions();
 		void import(string path);
 		void insert(string word, string meanings,string language);
+		void HashTable::printTrending(int limit);
 		void delWord(string word);
 		void delTranslation(string word, string language);
 		void delMeaning(string word, string meaning, string language);
 		void exportData(string language, string filePath);
+		void HashTable::exportAnalytics(string filename);
 		void find(string word);
 		~HashTable();
 };

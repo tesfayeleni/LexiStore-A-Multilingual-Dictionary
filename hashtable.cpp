@@ -125,6 +125,47 @@ void Entry::addTranslation(string newMeanings, string language)
   }
 
 }
+
+void Entry::addSynonyms(string syns)
+{
+  // Create a string stream to process the input string
+  istringstream ss(syns);
+  string synonym;
+
+  // Split the input by semicolons
+  while (getline(ss, synonym, ';')) 
+  {
+    // Check if the synonym is not already in the list to avoid duplicates
+    if (find(synonyms.begin(), synonyms.end(), synonym) == synonyms.end()) 
+    {
+      // Add the synonym to the list
+      synonyms.push_back(synonym);
+    }
+  }
+
+}
+
+void Entry::addAntonyms(string ants)
+{
+  // Create a string stream to process the input string
+  istringstream ss(ants);
+  string antonym;
+
+  // Split the input by semicolons
+  while (getline(ss, antonym, ';')) 
+  {
+    // Check if the antonym is not already in the list to avoid duplicates
+    if (find(antonyms.begin(), antonyms.end(), antonym) == antonyms.end()) 
+    {
+      // Add the antonnym to the list
+      antonyms.push_back(antonym);
+    }
+  }
+
+}
+
+
+
 void Entry::print()
 {
   //loop through translations and print them
@@ -166,33 +207,6 @@ HashTable::HashTable(int capacity)
 }
 unsigned long HashTable::hashCode(string word)
 {
-  // POLYNOMIAL HASH CODE!!
-  // unsigned long hash=0;
-	// int base = 37;
-
-	// //loop through the characters of the word and multiply the has value with the base and add the ascii code of the character
-	// for (int i=0; i<word.length(); i++)
-	// {
-	// 	char ch=word[i];
-	// 	hash= hash*base+ch;
-
-	// }
-  // return hash%capacity;
-
-
-
-  // CYCLIC HASHING!!
-  // unsigned long hash = 0;
-  // for (int i = 0; i < word.length(); i++) 
-  // {
-  //   hash = (hash << 5) | (hash >> 27); // shift left 5
-  //   hash = (hash + word[i]);          
-  // }
-
-  // return hash% capacity;
-
-
-
   //FNV-1a HASHING!!
   unsigned long hash = 2166136261;  //This is the initial basis used in FNV-1a.
   for (int i = 0; i < word.length(); i++) 
@@ -210,13 +224,12 @@ unsigned long HashTable::hashCode(string word)
 unsigned int HashTable::getSize()
 {
   return size;
-
 }
 unsigned int HashTable:: getCollisions()
 {
   return collisions;
-
 }
+
 void HashTable::import(string path)
 {
   // Open the file for reading
@@ -251,10 +264,35 @@ void HashTable::import(string path)
     //extract the meanings
     if (!getline(ss, meaningPart)) continue;
 
-    //split the multiple meanings by semicolon
-    stringstream ms(meaningPart);
+
+    // Extract meanings, synonyms, and antonyms from meaningPart
+    size_t firstBar = meaningPart.find('|');
+    size_t secondBar = string::npos;
+    string meaningsOnly = meaningPart;
+    string synonymsPart = "";
+    string antonymsPart = "";
+
+    if (firstBar != string::npos)
+    {
+      secondBar = meaningPart.find('|', firstBar + 1);
+      meaningsOnly = meaningPart.substr(0, firstBar);
+
+      // Extract synonyms between first and second bar, or until end if no second bar
+      synonymsPart = (secondBar != string::npos)
+        ? meaningPart.substr(firstBar + 1, secondBar - firstBar - 1)
+        : meaningPart.substr(firstBar + 1);
+
+      // Extract antonyms after second bar, if exists
+      antonymsPart = (secondBar != string::npos)
+        ? meaningPart.substr(secondBar + 1)
+        : "";
+    }
+
+    // Now split the meaningsOnly string by semicolons
+    stringstream ms(meaningsOnly);
     string singleMeaning;
     bool hasValidMeaning = false;
+
 
     // combine all meanings into one string, separated by semicolons
     string combinedMeanings;
@@ -277,9 +315,23 @@ void HashTable::import(string path)
       for (char &c : language) c = tolower(c);
       for (char &c : combinedMeanings) c = tolower(c);
 
-      insert(word, combinedMeanings, language); 
+      Entry* entry = insert(word, combinedMeanings, language); 
       importedCount++;
+
+      // If the Entry was successfully found and synonyms/antonyms exist
+      if (entry && firstBar != string::npos)
+      {
+        // If the synonyms string is not empty, add synonyms to the Entry
+        if (!synonymsPart.empty())
+          entry->addSynonyms(synonymsPart);
+
+        // If the antonyms string is not empty, add antonyms to the Entry  
+        if (!antonymsPart.empty())
+          entry->addAntonyms(antonymsPart);
+      }
+
     }
+
   }
 
   //close the file
@@ -289,7 +341,7 @@ void HashTable::import(string path)
   cout << importedCount << " " << language << " words have been imported successfully." << endl;
 }
 
-void HashTable::insert(string word, string meanings,string language)
+Entry* HashTable::insert(string word, string meanings,string language)
 {
   //change word to lower case
   for (size_t i=0; i<word.length(); i++)
@@ -313,8 +365,9 @@ void HashTable::insert(string word, string meanings,string language)
     {
       buckets[probeIndex]= new Entry(word, meanings, language);
       size++;
-      return;
+      return buckets[probeIndex]; // return pointer to the updated Entry
     }
+
     //check that the slot is not empty but the word matches
     else if (buckets[probeIndex]!=nullptr && buckets[probeIndex]->word==word)
     {
@@ -324,14 +377,14 @@ void HashTable::insert(string word, string meanings,string language)
         buckets[probeIndex]->deleted=false;
         buckets[probeIndex]->addTranslation(meanings, language);
         size++;
-        return;
+        return buckets[probeIndex]; // return pointer to the updated Entry
       }
       //if the slot is not marked deleted but occupied, 
       // just add the translation to the existing translations
       else
       {
         buckets[probeIndex]->addTranslation(meanings, language);
-        return;
+        return buckets[probeIndex];  // return pointer to the existing Entry
       }
     }
     //if none of the cases above, then a collsion must have occured
@@ -343,12 +396,11 @@ void HashTable::insert(string word, string meanings,string language)
 		  if (i==capacity)
 		  {
 			  cout<<"HashTable is full!! Could not insert:"<<word<<endl;
-			  return;
+			  return nullptr;
 		  }
     }
 		
 	}
-
 
 }
 
@@ -429,8 +481,19 @@ void HashTable::find(string word)
       // Print out grouped meanings by language
       if (storedWord == word && !buckets[probeIndex]->deleted)
       {
+        buckets[probeIndex]->search_count++;  // Track how often the word is searched
+
         cout << word << " found in the Dictionary after " << comparisons << " comparisons." << endl;
         buckets[probeIndex]->print(); // <-- call your Entry print function here
+        
+        cout << "Synonyms: ";
+        for (const auto& s : buckets[probeIndex]->synonyms) cout << s << "; ";
+
+        cout << "\nAntonyms: ";
+        for (const auto& a : buckets[probeIndex]->antonyms) cout << a << "; ";
+
+        cout << "\n";
+
         return;
         
       }
@@ -442,6 +505,42 @@ void HashTable::find(string word)
 
   //if word is not found after probing
   cout << word << " not found in the Dictionary" << endl;
+
+}
+
+void HashTable::printTrending(int limit) 
+{
+    vector<Entry*> entries; // Vector to hold valid (non-deleted) entries
+
+    // Collect all valid entries from the hash table
+    for (int i = 0; i < capacity; i++) 
+    {
+      if (buckets[i] && !buckets[i]->deleted) 
+      {
+          entries.push_back(buckets[i]);
+      }
+    }
+
+    // Sort the entries in descending order by search_count (most searched first)
+    sort(entries.begin(), entries.end(), [](Entry* a, Entry* b) 
+    {
+      return a->search_count > b->search_count;
+    });
+
+    // Print the top 'limit' trending words
+    for (int i = 0; i < min(limit, (int)entries.size()); i++) 
+    {
+      cout << entries[i]->word << "\t[";
+
+      int bars = entries[i]->search_count / 5; // Scale search count to visual bar length
+
+      // Print a bar made of '=' symbols proportional to the search count
+      for (int j = 0; j < bars; j++) 
+          cout << "=";
+
+      // Display the number of searches
+      cout << "] " << entries[i]->search_count << " searches\n";
+    }
 }
 
 void HashTable::delWord(string word)
@@ -754,6 +853,37 @@ void HashTable::exportData(string language, string filePath)
   cout << exportedCount << " records have been successfully exported to " << filePath << endl;
 
 
+}
+
+void HashTable::exportAnalytics(string filename) 
+{
+    ofstream file(filename);  // Open the output file to write the analytics report
+    
+    file << "--- WORD ANALYTICS REPORT ---\n\n";  // Header for the report
+    file << "Total words: " << size << "\n";    // Print total number of words in the hash table
+    
+    // Variables to accumulate total synonyms and antonyms counts
+    int totalSynonyms = 0, totalAntonyms = 0;
+    
+    // Loop over all buckets in the hash table
+    for (int i = 0; i < capacity; i++) {
+        // Check if the bucket is not empty and not marked deleted
+        if (buckets[i] && !buckets[i]->deleted) {
+            // Add the size of synonyms and antonyms vectors for this word
+            totalSynonyms += buckets[i]->synonyms.size();
+            totalAntonyms += buckets[i]->antonyms.size();
+        }
+    }
+    
+    // Calculate and write average number of synonyms and antonyms per word
+    file << "Avg synonyms/word: " << (totalSynonyms / (double)size) << "\n";
+    file << "Avg antonyms/word: " << (totalAntonyms / (double)size) << "\n\n";
+    
+    // Write heading for the list of top searched words
+    file << "TOP SEARCHED WORDS:\n";
+    
+    // Call existing function to print the top 10 trending (most searched) words
+    printTrending(10);  // Assumes printTrending writes to the same output stream or console
 }
 
 HashTable::~HashTable() 
